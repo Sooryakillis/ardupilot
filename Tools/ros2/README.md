@@ -13,6 +13,14 @@ For example `ardurover` SITL may be launched with:
 ros2 launch ardupilot_sitl sitl.launch.py command:=ardurover model:=rover
 ```
 
+Other launch files are included with many arguments.
+Some common arguments are exposed and forwarded to the underlying process.
+
+For example, MAVProxy can be launched, and you can enable the `console` and `map`.
+```bash
+ros2 launch ardupilot_sitl sitl_mavproxy.launch.py map:=True console:=True 
+```
+
 #### `ardupilot_dds_test`
 
 A `colcon` package for testing communication between `micro_ros_agent` and the
@@ -30,7 +38,7 @@ The packages depend on:
 #### 1. Create a workspace folder
 
 ```bash
-mkdir -p ~/ros_ws/src && cd ~/ros_ws/src
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
 ```
 
 The ROS 2 tutorials contain more details regarding [ROS 2 workspaces](https://docs.ros.org/en/humble/Tutorials/Workspace/Creating-A-Workspace.html).
@@ -46,7 +54,7 @@ vcs import --recursive < ros2.repos
 #### 3. Update dependencies
 
 ```bash
-cd ~/ros_ws
+cd ~/ros2_ws
 source /opt/ros/humble/setup.bash
 sudo apt update
 rosdep update
@@ -64,7 +72,7 @@ ROS_DISTRO=humble
 ```
 
 ```bash
-cd ~/ros_ws
+cd ~/ros2_ws
 colcon build --cmake-args -DBUILD_TESTING=ON
 ```
 
@@ -84,7 +92,7 @@ must be built from source and additional compiler flags are needed.
 #### 1. Create a workspace folder
 
 ```bash
-mkdir -p ~/ros_ws/src && cd ~/ros_ws/src
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
 ```
 
 #### 2. Get the `ros2_macos.repos` file
@@ -100,7 +108,7 @@ vcs import --recursive < ros2_macos.repos
 #### 3. Update dependencies
 
 ```bash
-cd ~/ros_ws
+cd ~/ros2_ws
 source /{path_to_your_ros_distro_workspace}/install/setup.zsh
 ```
 
@@ -183,7 +191,7 @@ socat -d -d pty,raw,echo=0,link=./dev/ttyROS0 pty,raw,echo=0,link=./dev/ttyROS1
 ```
 
 ```bash
-ros2 run micro_ros_agent micro_ros_agent serial --baudrate 115200 --dev ./dev/ttyROS0 --refs $(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/dds_xrce_profile.xml
+ros2 run micro_ros_agent micro_ros_agent serial --baudrate 115200 --dev ./dev/ttyROS0
 ```
 
 ```bash
@@ -201,7 +209,7 @@ ros2 launch ardupilot_sitl virtual_ports.launch.py tty0:=./dev/ttyROS0 tty1:=./d
 ```
 
 ```bash
-ros2 launch ardupilot_sitl micro_ros_agent.launch.py transport:=serial refs:=$(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/dds_xrce_profile.xml baudrate:=115200 device:=./dev/ttyROS0
+ros2 launch ardupilot_sitl micro_ros_agent.launch.py transport:=serial baudrate:=115200 device:=./dev/ttyROS0
 ```
 
 ```bash
@@ -221,7 +229,6 @@ tty0:=./dev/ttyROS0 \
 tty1:=./dev/ttyROS1 \
 \
 transport:=serial \
-refs:=$(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/dds_xrce_profile.xml \
 baudrate:=115200 \
 device:=./dev/ttyROS0 \
 \
@@ -242,5 +249,5 @@ sitl:=127.0.0.1:5501
 UDP version
 
 ```
-ros2 launch ardupilot_sitl sitl_dds_udp.launch.py transport:=udp4 refs:=$(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/dds_xrce_profile.xml synthetic_clock:=True wipe:=False model:=quad speedup:=1 slave:=0 instance:=0 defaults:=$(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/default_params/copter.parm,$(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/default_params/dds_udp.parm sim_address:=127.0.0.1 master:=tcp:127.0.0.1:5760 sitl:=127.0.0.1:5501
+ros2 launch ardupilot_sitl sitl_dds_udp.launch.py transport:=udp4 synthetic_clock:=True wipe:=False model:=quad speedup:=1 slave:=0 instance:=0 defaults:=$(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/default_params/copter.parm,$(ros2 pkg prefix ardupilot_sitl)/share/ardupilot_sitl/config/default_params/dds_udp.parm sim_address:=127.0.0.1 master:=tcp:127.0.0.1:5760 sitl:=127.0.0.1:5501
 ```

@@ -27,7 +27,6 @@ const AP_Param::Info Blimp::var_info[] = {
     // @DisplayName: Eeprom format version number
     // @Description: This value is incremented when changes are made to the eeprom format
     // @User: Advanced
-    // @ReadOnly: True
     GSCALAR(format_version, "FORMAT_VERSION",   0),
 
     // @Param: SYSID_THISMAV
@@ -58,13 +57,10 @@ const AP_Param::Info Blimp::var_info[] = {
     // @DisplayName: Throttle stick behavior
     // @Description: Bitmask containing various throttle stick options. TX with sprung throttle can set PILOT_THR_BHV to "1" so motor feedback when landed starts from mid-stick instead of bottom of stick.
     // @User: Standard
-    // @Values: 0:None,1:Feedback from mid stick,2:High throttle cancels landing,4:Disarm on land detection
     // @Bitmask: 0:Feedback from mid stick,1:High throttle cancels landing,2:Disarm on land detection
     GSCALAR(throttle_behavior, "PILOT_THR_BHV", 0),
 
-    // @Group: SERIAL
-    // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
-    GOBJECT(serial_manager, "SERIAL",   AP_SerialManager),
+    // SerialManager was here
 
     // @Param: TELEM_DELAY
     // @DisplayName: Telemetry startup delay
@@ -79,7 +75,6 @@ const AP_Param::Info Blimp::var_info[] = {
     // @DisplayName: GCS PID tuning mask
     // @Description: bitmask of PIDs to send MAVLink PID_TUNING messages for
     // @User: Advanced
-    // @Values: 0:None,1:VELX,2:VELY,4:VELZ,8:VELYAW,16:POSX,32:POSY,64:POSZ,128:POSYAW,15:Vel only,51:XY only,204:ZYaw only,240:Pos only,255:All
     // @Bitmask: 0:VELX,1:VELY,2:VELZ,3:VELYAW,4:POSX,5:POSY,6:POZ,7:POSYAW
     GSCALAR(gcs_pid_mask, "GCS_PID_MASK",     0),
 
@@ -265,7 +260,6 @@ const AP_Param::Info Blimp::var_info[] = {
     // @Param: DIS_MASK
     // @DisplayName: Disable output mask
     // @Description: Mask for disabling (setting to zero) one or more of the 4 output axis in mode Velocity or Loiter
-    // @Values: 0:All enabled,1:Right,2:Front,4:Down,8:Yaw,3:Down and Yaw only,12:Front & Right only
     // @Bitmask: 0:Right,1:Front,2:Down,3:Yaw
     // @User: Standard
     GSCALAR(dis_mask, "DIS_MASK", 0),
@@ -388,9 +382,11 @@ const AP_Param::Info Blimp::var_info[] = {
     GOBJECTN(ahrs.EKF3, NavEKF3, "EK3_", NavEKF3),
 #endif
 
+#if AP_RSSI_ENABLED
     // @Group: RSSI_
     // @Path: ../libraries/AP_RSSI/AP_RSSI.cpp
     GOBJECT(rssi, "RSSI_",  AP_RSSI),
+#endif
 
     // @Group: NTF_
     // @Path: ../libraries/AP_Notify/AP_Notify.cpp
@@ -813,7 +809,6 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Param: FS_OPTIONS
     // @DisplayName: Failsafe options bitmask
     // @Description: Bitmask of additional options for battery, radio, & GCS failsafes. 0 (default) disables all options.
-    // @Values: 0:Disabled, 16:Continue if in pilot controlled modes on GCS failsafe
     // @Bitmask: 4:Continue if in pilot controlled modes on GCS failsafe
     // @User: Advanced
     AP_GROUPINFO("FS_OPTIONS", 36, ParametersG2, fs_options, (float)Blimp::FailsafeOption::GCS_CONTINUE_IF_PILOT_CONTROL),
@@ -842,39 +837,31 @@ void Blimp::load_parameters(void)
 {
     AP_Vehicle::load_parameters(g.format_version, Parameters::k_format_version);
 
-    // PARAMETER_CONVERSION - Added: Jan-2024 for Copter-4.6
+    static const AP_Param::G2ObjectConversion g2_conversions[] {
 #if AP_STATS_ENABLED
-    {
-        // Find G2's Top Level Key
-        AP_Param::ConversionInfo info;
-        if (!AP_Param::find_top_level_key_by_pointer(&g2, info.old_key)) {
-            return;
-        }
-
-        const uint16_t old_index = 12;       // Old parameter index in g2
-        const uint16_t old_top_element = 4044; // Old group element in the tree for the first subgroup element (see AP_PARAM_KEY_DUMP)
-        AP_Param::convert_class(info.old_key, &stats, stats.var_info, old_index, old_top_element, false);
-    }
-#endif
     // PARAMETER_CONVERSION - Added: Jan-2024 for Copter-4.6
-#if AP_SCRIPTING_ENABLED
-    {
-        // Find G2's Top Level Key
-        AP_Param::ConversionInfo info;
-        if (!AP_Param::find_top_level_key_by_pointer(&g2, info.old_key)) {
-            return;
-        }
-
-        const uint16_t old_index = 30;       // Old parameter index in g2
-        const uint16_t old_top_element = 94; // Old group element in the tree for the first subgroup element (see AP_PARAM_KEY_DUMP)
-        AP_Param::convert_class(info.old_key, &scripting, scripting.var_info, old_index, old_top_element, false);
-    }
+        { &stats, stats.var_info, 12 },
 #endif
+#if AP_SCRIPTING_ENABLED
+    // PARAMETER_CONVERSION - Added: Jan-2024 for Copter-4.6
+        { &scripting, scripting.var_info, 30 },
+#endif
+    };
+    AP_Param::convert_g2_objects(&g2, g2_conversions, ARRAY_SIZE(g2_conversions));
 
     // PARAMETER_CONVERSION - Added: Feb-2024
 #if HAL_LOGGING_ENABLED
-    AP_Param::convert_class(g.k_param_logger, &logger, logger.var_info, 0, 0, true);
+    AP_Param::convert_class(g.k_param_logger, &logger, logger.var_info, 0, true);
 #endif
+
+    static const AP_Param::TopLevelObjectConversion toplevel_conversions[] {
+#if AP_SERIALMANAGER_ENABLED
+        // PARAMETER_CONVERSION - Added: Feb-2024
+        { &serial_manager, serial_manager.var_info, Parameters::k_param_serial_manager_old },
+#endif
+    };
+
+    AP_Param::convert_toplevel_objects(toplevel_conversions, ARRAY_SIZE(toplevel_conversions));
 
     // setup AP_Param frame type flags
     AP_Param::set_frame_type_flags(AP_PARAM_FRAME_BLIMP);

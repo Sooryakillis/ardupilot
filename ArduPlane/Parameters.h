@@ -202,7 +202,7 @@ public:
         k_param_curr_amp_offset,
         k_param_NavEKF,  // deprecated - remove
         k_param_mission, // mission library
-        k_param_serial_manager, // serial manager library
+        k_param_serial_manager_old, // serial manager library
         k_param_NavEKF2_old,  // deprecated - remove
         k_param_land_pre_flare_alt, // unused - moved to AP_Landing
         k_param_land_pre_flare_airspeed = 149,  // unused - moved to AP_Landing
@@ -343,6 +343,7 @@ public:
 
         k_param_mixing_offset,
         k_param_dspoiler_rud_rate,
+        k_param_airspeed_stall,
 
         k_param_logger = 253, // Logging Group
 
@@ -518,6 +519,10 @@ public:
 
 #if AP_LANDINGGEAR_ENABLED
     AP_LandingGear landing_gear;
+#endif
+
+#if AC_PRECLAND_ENABLED
+    AC_PrecLand precland;
 #endif
 
     // crow flaps weighting

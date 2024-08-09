@@ -8,6 +8,7 @@
 // #include "AC_CustomControl_Empty.h"
 #include "AC_CustomControl_PID.h"
 #include <GCS_MAVLink/GCS.h>
+#include <AP_Logger/AP_Logger.h>
 
 // table of user settable parameters
 const AP_Param::GroupInfo AC_CustomControl::var_info[] = {
@@ -54,11 +55,11 @@ void AC_CustomControl::init(void)
             break;
         case CustomControlType::CONT_EMPTY: // This is template backend. Don't initialize it.
             // This is template backend. Don't initialize it.
-            // _backend = new AC_CustomControl_Empty(*this, _ahrs, _att_control, _motors, _dt);
+            // _backend = NEW_NOTHROW AC_CustomControl_Empty(*this, _ahrs, _att_control, _motors, _dt);
             // _backend_var_info[get_type()] = AC_CustomControl_Empty::var_info;
             break;
         case CustomControlType::CONT_PID:
-            _backend = new AC_CustomControl_PID(*this, _ahrs, _att_control, _motors, _dt);
+            _backend = NEW_NOTHROW AC_CustomControl_PID(*this, _ahrs, _att_control, _motors, _dt);
             _backend_var_info[get_type()] = AC_CustomControl_PID::var_info;
             break;
         default:

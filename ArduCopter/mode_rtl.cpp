@@ -255,11 +255,6 @@ void ModeRTL::descent_start()
     // optionally deploy landing gear
     copter.landinggear.deploy_for_landing();
 #endif
-
-#if AP_FENCE_ENABLED
-    // disable the fence on landing
-    copter.fence.auto_disable_fence_for_landing();
-#endif
 }
 
 // rtl_descent_run - implements the final descent to the RTL_ALT
@@ -347,11 +342,6 @@ void ModeRTL::land_start()
     // optionally deploy landing gear
     copter.landinggear.deploy_for_landing();
 #endif
-
-#if AP_FENCE_ENABLED
-    // disable the fence on landing
-    copter.fence.auto_disable_fence_for_landing();
-#endif
 }
 
 bool ModeRTL::is_landing() const
@@ -387,10 +377,7 @@ void ModeRTL::land_run(bool disarm_on_land)
 void ModeRTL::build_path()
 {
     // origin point is our stopping point
-    Vector3p stopping_point;
-    pos_control->get_stopping_point_xy_cm(stopping_point.xy());
-    pos_control->get_stopping_point_z_cm(stopping_point.z);
-    rtl_path.origin_point = Location(stopping_point.tofloat(), Location::AltFrame::ABOVE_ORIGIN);
+    rtl_path.origin_point = get_stopping_point();
     rtl_path.origin_point.change_alt_frame(Location::AltFrame::ABOVE_HOME);
 
     // compute return target

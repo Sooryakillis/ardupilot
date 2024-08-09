@@ -201,6 +201,7 @@ void AP_MSP_Telem_Backend::update_home_pos(home_state_t &home_state)
     home_state.home_is_set = _ahrs.home_is_set();
 }
 
+#if AP_GPS_ENABLED
 void AP_MSP_Telem_Backend::update_gps_state(gps_state_t &gps_state)
 {
     AP_GPS& gps = AP::gps();
@@ -220,6 +221,7 @@ void AP_MSP_Telem_Backend::update_gps_state(gps_state_t &gps_state)
         gps_state.ground_course_cd = gps.ground_course_cd();
     }
 }
+#endif
 
 #if AP_BATTERY_ENABLED
 void AP_MSP_Telem_Backend::update_battery_state(battery_state_t &battery_state)
@@ -645,8 +647,10 @@ MSPCommandResult AP_MSP_Telem_Backend::msp_process_out_raw_gps(sbuf_t *dst)
         return MSP_RESULT_ERROR;
     }
 #endif
-    gps_state_t gps_state;
+    gps_state_t gps_state {};
+#if AP_GPS_ENABLED
     update_gps_state(gps_state);
+#endif
 
     // handle airspeed override
     bool airspeed_en = false;
@@ -1057,8 +1061,12 @@ MSPCommandResult AP_MSP_Telem_Backend::msp_process_out_rc(sbuf_t *dst)
     if (rcmap == nullptr) {
         return MSP_RESULT_ERROR;
     }
-    uint16_t values[16] = {};
-    rc().get_radio_in(values, ARRAY_SIZE(values));
+
+    // note: rcmap channels start at 1
+    float roll = rc().rc_channel(rcmap->roll()-1)->norm_input_dz();
+    float pitch = -rc().rc_channel(rcmap->pitch()-1)->norm_input_dz();
+    float yaw = rc().rc_channel(rcmap->yaw()-1)->norm_input_dz();
+    float throttle = rc().rc_channel(rcmap->throttle()-1)->norm_input_dz();
 
     const struct PACKED {
         uint16_t a;
@@ -1067,11 +1075,10 @@ MSPCommandResult AP_MSP_Telem_Backend::msp_process_out_rc(sbuf_t *dst)
         uint16_t t;
     } rc {
         // send only 4 channels, MSP order is AERT
-        // note: rcmap channels start at 1
-        a : values[rcmap->roll()-1],       // A
-        e : values[rcmap->pitch()-1],      // E
-        r : values[rcmap->yaw()-1],        // R
-        t : values[rcmap->throttle()-1]    // T
+        a : uint16_t(roll*500+1500),       // A
+        e : uint16_t(pitch*500+1500),      // E
+        r : uint16_t(yaw*500+1500),        // R
+        t : uint16_t(throttle*1000+1000)    // T
     };
 
     sbuf_write_data(dst, &rc, sizeof(rc));
