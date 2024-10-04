@@ -7,13 +7,8 @@ MCU STM32H7xx STM32H743xx
 # crystal frequency
 OSCILLATOR_HZ 8000000
 
-#define STM32_HSE_BYPASS
-
 # board ID for firmware load
 APJ_BOARD_ID 139
-
-# the nucleo seems to have trouble with flashing the last sector?
-FLASH_SIZE_KB 2048
 
 # bootloader is installed at zero offset
 FLASH_RESERVE_START_KB 0
@@ -22,6 +17,11 @@ FLASH_RESERVE_START_KB 0
 # the H743 has 128k sectors
 FLASH_BOOTLOADER_LOAD_KB 128
 
+
+# flash size
+FLASH_SIZE_KB 2048
+
+env OPTIMIZE -Os
 
 # order of UARTs (and USB)
 #SERIAL_ORDER OTG1
@@ -48,14 +48,14 @@ PA12 OTG_FS_DP OTG1
 PA13 JTMS-SWDIO SWD
 PA14 JTCK-SWCLK SWD
 
-# make sure Vsw is on during bootloader (copy from MATEKH743)
+# make sure Vsw is on during bootloader 
 #PD10  PINIO1 OUTPUT LOW
 
 PE3 LED_BOOTLOADER OUTPUT LOW
 define HAL_LED_ON 0
 
 
-# Add CS pins to ensure they are high in bootloader (copy from MATEKH743)
+# Add CS pins to ensure they are high in bootloader
 PD7  GYRO_CS    CS
 PD4  ACCEL_CS   CS  #bmi088 imu_1
 PE11 IMU2_CS    CS  #icm20602 imu_2
@@ -66,3 +66,6 @@ PB2 FRAM_CS CS
 #PC15 IMU1_CS CS
 #PB12 MAX7456_CS CS
 #PC13 IMU3_CS CS
+
+define HAL_USE_EMPTY_STORAGE 1
+define HAL_STORAGE_SIZE 16384
