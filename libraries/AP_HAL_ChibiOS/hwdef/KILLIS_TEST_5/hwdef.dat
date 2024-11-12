@@ -134,7 +134,7 @@ define HAL_GPIO_B_LED_PIN 90
 define HAL_SPEKTRUM_PWR_ENABLED 1
 
 # order of UARTs (and USB)
-SERIAL_ORDER OTG1 UART7 USART2 UART4 USART6 OTG2 
+SERIAL_ORDER OTG1 UART7 USART2 UART4 OTG2 
 
 # USART1 (telem2)
 #PA10 USART1_RX USART1 #USB_FS_ID 
@@ -153,19 +153,19 @@ PA0 UART4_TX UART4
 PB8 UART4_RX UART4 
 
 # USART6 is for IOMCU
-#PC6 USART6_TX USART6
-#PC7 USART6_RX USART6
+PC6 USART6_TX USART6
+PC7 USART6_RX USART6
 
-#IOMCU_UART USART6
+IOMCU_UART USART6
 
 # USART6 (RC input), SERIAL7
-PC7 TIM3_CH2 TIM3 RCININT PULLDOWN LOW
-PC6 USART6_TX USART6 NODMA
+#PC7 TIM3_CH2 TIM3 RCININT PULLDOWN LOW
+#PC6 USART6_TX USART6 NODMA
 
 # as an alternative config setup the RX6 pin as a uart. This allows
 # for bi-directional UART based receiver protocols such as FPort
 # without any extra hardware
-PC7 USART6_RX USART6 NODMA ALT(1)
+#PC7 USART6_RX USART6 NODMA ALT(1)
 
 # UART7 (telem1)
 PE7 UART7_RX UART7
@@ -213,7 +213,8 @@ define FATFS_HAL_DEVICE SDCD1
 PD11  PINIO2 OUTPUT GPIO(82) LOW
 
 
-DMA_PRIORITY SDMMC* USART6* USART2* ADC* SPI* TIM* 
+#DMA_PRIORITY SDMMC* USART6* USART2* ADC* SPI* TIM* 
+DMA_PRIORITY SDMMC* USART6* ADC* UART* USART* SPI* TIM*
 
 
 # use last 2 pages for flash storage
@@ -269,7 +270,11 @@ define HAL_OS_FATFS_IO 1
 # is "ROMFS ROMFS-filename source-filename". Paths are relative to the
 # ardupilot root.
 
-#ROMFS io_firmware.bin Tools/IO_Firmware/iofirmware_f103_lowpolh.bin
+ROMFS io_firmware.bin Tools/IO_Firmware/iofirmware_f103_lowpolh.bin
+
+# enable support for dshot on iomcu
+ROMFS io_firmware_dshot.bin Tools/IO_Firmware/iofirmware_f103_dshot_lowpolh.bin
+define HAL_WITH_IO_MCU_BIDIR_DSHOT 1
 
 # setup for OSD
 define OSD_ENABLED 1
