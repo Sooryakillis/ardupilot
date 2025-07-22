@@ -63,6 +63,7 @@ public:
     friend class ModeQAcro;
     friend class ModeLoiterAltQLand;
     friend class ModeAutoLand;
+    friend class AP_SystemID;
 
     QuadPlane(AP_AHRS &_ahrs);
 
@@ -192,6 +193,8 @@ public:
     // Get pilot throttle input with deadzone, this will return 50% throttle in failsafe!
     float get_throttle_input() const;
 
+    void Log_Write_AttRate();
+
 private:
     AP_AHRS &ahrs;
 
@@ -279,7 +282,7 @@ private:
     float assist_climb_rate_cms(void) const;
 
     // calculate desired yaw rate for assistance
-    float desired_auto_yaw_rate_cds(void) const;
+    float desired_auto_yaw_rate_cds(bool body_frame = false) const;
 
     bool should_relax(void);
     void motors_output(bool run_rate_controller = true);
@@ -548,8 +551,8 @@ private:
         uint8_t motor_count;          // number of motors to cycle
     } motor_test;
 
-    // time of last control log message
-    uint32_t last_ctrl_log_ms;
+    // time of last MOTB log message
+    uint32_t last_motb_log_ms;
 
     // time of last QTUN log message
     uint32_t last_qtun_log_ms;
@@ -581,7 +584,7 @@ private:
 
     // additional options
     AP_Int32 options;
-    enum class OPTION {
+    enum class Option {
         LEVEL_TRANSITION=(1<<0),
         ALLOW_FW_TAKEOFF=(1<<1),
         ALLOW_FW_LAND=(1<<2),
@@ -606,7 +609,7 @@ private:
         DISARMED_TILT_UP=(1<<21),
         SCALE_FF_ANGLE_P=(1<<22),
     };
-    bool option_is_set(OPTION option) const {
+    bool option_is_set(Option option) const {
         return (options.get() & int32_t(option)) != 0;
     }
 
@@ -631,6 +634,12 @@ private:
     // oneshot with duration ARMING_DELAY_MS used by quadplane to delay spoolup after arming:
     // ignored unless OPTION_DELAY_ARMING or OPTION_TILT_DISARMED is set
     bool delay_arming;
+
+    // should we force use of fixed wing controller for attitude upset recovery?
+    bool force_fw_control_recovery;
+
+    // are we in spin recovery?
+    bool in_spin_recovery;
 
     /*
       return true if current mission item is a vtol takeoff

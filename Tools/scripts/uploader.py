@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 ############################################################################
 #
 #   Copyright (c) 2012-2017 PX4 Development Team. All rights reserved.
@@ -51,9 +52,6 @@
 #
 
 # AP_FLAKE8_CLEAN
-
-# for python2.7 compatibility
-from __future__ import print_function
 
 import sys
 import argparse
@@ -390,7 +388,7 @@ class uploader(object):
             return True
 
         except NotImplementedError:
-            raise RuntimeError("Programing not supported for this version of silicon!\n"
+            raise RuntimeError("Programming not supported for this version of silicon!\n"
                                "See https://pixhawk.org/help/errata")
         except RuntimeError:
             # timeout, no response yet
@@ -434,8 +432,8 @@ class uploader(object):
         self.__getSync()
         if runningPython3:
             value = value.decode('ascii')
-        peices = value.split(",")
-        return peices
+        pieces = value.split(",")
+        return pieces
 
     def __drawProgressBar(self, label, progress, maxVal):
         if maxVal < progress:

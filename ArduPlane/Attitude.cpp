@@ -24,7 +24,7 @@ float Plane::calc_speed_scaler(void)
         speed_scaler = constrain_float(speed_scaler, scale_min, scale_max);
 
 #if HAL_QUADPLANE_ENABLED
-        if (quadplane.in_vtol_mode() && arming.is_armed_and_safety_off()) {
+        if ((quadplane.in_vtol_mode() || quadplane.in_assisted_flight()) && arming.is_armed_and_safety_off()) {
             // when in VTOL modes limit surface movement at low speed to prevent instability
             float threshold = airspeed_min * 0.5;
             if (aspeed < threshold) {
@@ -133,7 +133,7 @@ float Plane::stabilize_roll_get_roll_out()
         const auto &pid_info = quadplane.attitude_control->get_rate_roll_pid().get_pid_info();
 
         // scale FF to angle P
-        if (quadplane.option_is_set(QuadPlane::OPTION::SCALE_FF_ANGLE_P)) {
+        if (quadplane.option_is_set(QuadPlane::Option::SCALE_FF_ANGLE_P)) {
             const float mc_angR = quadplane.attitude_control->get_angle_roll_p().kP()
                 * quadplane.attitude_control->get_last_angle_P_scale().x;
             if (is_positive(mc_angR)) {
@@ -186,7 +186,7 @@ float Plane::stabilize_pitch_get_pitch_out()
         const auto &pid_info = quadplane.attitude_control->get_rate_pitch_pid().get_pid_info();
 
         // scale FF to angle P
-        if (quadplane.option_is_set(QuadPlane::OPTION::SCALE_FF_ANGLE_P)) {
+        if (quadplane.option_is_set(QuadPlane::Option::SCALE_FF_ANGLE_P)) {
             const float mc_angP = quadplane.attitude_control->get_angle_pitch_p().kP()
                 * quadplane.attitude_control->get_last_angle_P_scale().y;
             if (is_positive(mc_angP)) {
@@ -280,12 +280,10 @@ void Plane::stabilize_stick_mixing_fbw()
         control_mode == &mode_training) {
         return;
     }
-    // do FBW style stick mixing. We don't treat it linearly
-    // however. For inputs up to half the maximum, we use linear
-    // addition to the nav_roll and nav_pitch. Above that it goes
-    // non-linear and ends up as 2x the maximum, to ensure that
-    // the user can direct the plane in any direction with stick
-    // mixing.
+    // do FBW style roll stick mixing. We don't treat it linearly however. For
+    // inputs up to half the maximum, we use linear addition to the nav_roll.
+    // Above that it goes non-linear and ends up as 2x the maximum, to ensure
+    // that the user can direct the plane in any direction with stick mixing.
     float roll_input = channel_roll->norm_input_dz();
     if (roll_input > 0.5f) {
         roll_input = (3*roll_input - 1);
@@ -295,6 +293,9 @@ void Plane::stabilize_stick_mixing_fbw()
     nav_roll_cd += roll_input * roll_limit_cd;
     nav_roll_cd = constrain_int32(nav_roll_cd, -roll_limit_cd, roll_limit_cd);
 
+    if (plane.g.stick_mixing == StickMixing::FBW_NO_PITCH) {
+        return;
+    }
     if ((control_mode == &mode_loiter) && (plane.flight_option_enabled(FlightOptions::ENABLE_LOITER_ALT_CONTROL))) {
         // loiter is using altitude control based on the pitch stick, don't use it again here
         return;
@@ -378,6 +379,10 @@ void Plane::stabilize_yaw()
         SRV_Channels::set_output_scaled(SRV_Channel::k_steering, steering_output);
     }
 
+#if HAL_QUADPLANE_ENABLED
+    // possibly recover from a spin
+    quadplane.assist.output_spin_recovery();
+#endif
 }
 
 /*
@@ -493,7 +498,7 @@ int16_t Plane::calc_nav_yaw_coordinated()
         const float rudd_expo = rudder_in_expo(true);
         const float yaw_rate = (rudd_expo/SERVO_MAX) * g.acro_yaw_rate;
         // add in the coordinated turn yaw rate to make it easier to fly while tuning the yaw rate controller
-        const float coordination_yaw_rate = degrees(GRAVITY_MSS * tanf(radians(nav_roll_cd*0.01f))/MAX(aparm.airspeed_min,smoothed_airspeed));
+        const float coordination_yaw_rate = degrees(GRAVITY_MSS * tanf(cd_to_rad(nav_roll_cd))/MAX(aparm.airspeed_min,smoothed_airspeed));
         commanded_rudder = yawController.get_rate_out(yaw_rate+coordination_yaw_rate,  speed_scaler, false);
         using_rate_controller = true;
     } else {
@@ -578,7 +583,7 @@ int16_t Plane::calc_nav_yaw_ground(void)
         steering = steerController.get_steering_out_rate(steer_rate);
     } else {
         // use a error controller on the summed error
-        int32_t yaw_error_cd = -ToDeg(steer_state.locked_course_err)*100;
+        int32_t yaw_error_cd = -degrees(steer_state.locked_course_err)*100;
         steering = steerController.get_steering_out_angle_error(yaw_error_cd);
     }
     return constrain_int16(steering, -4500, 4500);
@@ -633,7 +638,9 @@ void Plane::update_load_factor(void)
         // limit to 85 degrees to prevent numerical errors
         demanded_roll = 85;
     }
-    aerodynamic_load_factor = 1.0f / safe_sqrt(cosf(radians(demanded_roll)));
+
+    // loadFactor = liftForce / gravityForce, where gravityForce = liftForce * cos(roll) on balanced horizontal turn
+    aerodynamic_load_factor = 1.0f / cosf(radians(demanded_roll));
 
 #if HAL_QUADPLANE_ENABLED
     if (quadplane.available() && quadplane.transition->set_FW_roll_limit(roll_limit_cd)) {
@@ -657,7 +664,13 @@ void Plane::update_load_factor(void)
     }
 #endif
 
-    float max_load_factor = smoothed_airspeed / MAX(aparm.airspeed_min, 1);
+    float stall_airspeed_1g = is_positive(aparm.airspeed_stall)
+                                  ? aparm.airspeed_stall
+                                  : aparm.airspeed_min;
+
+    float max_load_factor =
+        sq(smoothed_airspeed / MAX(stall_airspeed_1g, 1));
+
     if (max_load_factor <= 1) {
         // our airspeed is below the minimum airspeed. Limit roll to
         // 25 degrees
@@ -668,13 +681,13 @@ void Plane::update_load_factor(void)
         // load limit. Limit our roll to a bank angle that will keep
         // the load within what the airframe can handle. We always
         // allow at least 25 degrees of roll however, to ensure the
-        // aircraft can be manoeuvred with a bad airspeed estimate. At
+        // aircraft can be manoeuvered with a bad airspeed estimate. At
         // 25 degrees the load factor is 1.1 (10%)
-        int32_t roll_limit = degrees(acosf(sq(1.0f / max_load_factor)))*100;
+        int32_t roll_limit = degrees(acosf(1.0f / max_load_factor))*100;
         if (roll_limit < 2500) {
             roll_limit = 2500;
         }
         nav_roll_cd = constrain_int32(nav_roll_cd, -roll_limit, roll_limit);
         roll_limit_cd = MIN(roll_limit_cd, roll_limit);
-    }    
+    }
 }
