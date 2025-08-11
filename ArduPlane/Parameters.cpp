@@ -426,7 +426,7 @@ const AP_Param::Info Plane::var_info[] = {
     // @Range: 0 100
     // @Increment: 1
     // @User: Standard
-    ASCALAR(throttle_cruise,        "TRIM_THROTTLE",  THROTTLE_CRUISE),
+    ASCALAR(throttle_cruise,        "TRIM_THROTTLE",  AP_PLANE_TRIM_THROTTLE_DEFAULT),
 
     // @Param: THROTTLE_NUDGE
     // @DisplayName: Throttle nudge enable
@@ -1082,6 +1082,7 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Bitmask: 13: Indicate takeoff waiting for neutral rudder with flight control surfaces
     // @Bitmask: 14: In AUTO - climb to next waypoint altitude immediately instead of linear climb
     // @Bitmask: 15: Use minimum of target and actual speed for flap setting
+    // @Bitmask: 16: Enable full aerodynamic load factor-based roll limits when an airspeed sensor is enabled and AIRSPEED_STALL is set
     // @User: Advanced
     AP_GROUPINFO("FLIGHT_OPTIONS", 13, ParametersG2, flight_options, 0),
 
@@ -1267,6 +1268,15 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     AP_SUBGROUPINFO(systemid, "SID", 38, ParametersG2, AP_SystemID),
 #endif
     
+    // @Param: CLIMB_SLOPE_HGT
+    // @DisplayName: Climb slope mininum height
+    // @Description: Sets the minimum height above home at which the aircraft will apply a climb slope between waypoints. Below it, the aircraft will ascend immediately, and will only resume the requested trajectory upon reaching this height. This prevents unsafe behavior such as attempting to slowly gain altitude near obstacles. The default value ensures safe operations in most environments, but it can be adjusted based on specific terrain or operational needs.
+    // @Units: m
+    // @Range: 0 50
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("CLIMB_SLOPE_HGT", 39, ParametersG2, waypoint_climb_slope_height_min, 25),
+
     AP_GROUPEND
 };
 

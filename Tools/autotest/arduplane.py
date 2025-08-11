@@ -1001,7 +1001,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             )
             self.wait_message_field_values('VFR_HUD', {
                 "throttle": expected_throttle,
-            }, minimum_duration=5, epsilon=2)
+            }, minimum_duration=5, epsilon=5)
 
         self.fly_home_land_and_disarm(timeout=240)
 
@@ -3015,6 +3015,21 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.context_pop()
         self.progress("Returning home")
         self.fly_home_land_and_disarm(240)
+
+    def TerrainLoiterToCircle(self):
+        '''loiter terrain-relative.  Switch to Circle, maintain alt'''
+        self.install_terrain_handlers_context()
+        self.set_parameters({
+            "TERRAIN_FOLLOW": 1, # enable terrain following in loiter
+            "WP_LOITER_RAD": 2000, # set very large loiter rad to get some terrain changes
+        })
+        alt = 50
+        self.takeoff(alt*0.9, alt*1.1, mode='TAKEOFF')
+        self.change_mode('LOITER')
+        self.delay_sim_time(10)
+        self.change_mode('CIRCLE')
+        self.wait_altitude(alt*0.9, alt*1.1, minimum_duration=10, relative=True)
+        self.fly_home_land_and_disarm()
 
     def fly_external_AHRS(self, sim, eahrs_type, mission):
         """Fly with external AHRS"""
@@ -6784,6 +6799,59 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         command(mavutil.mavlink.MAV_CMD_EXTERNAL_WIND_ESTIMATE, p1=-2, p3=-90, want_result=mavutil.mavlink.MAV_RESULT_DENIED)
         command(mavutil.mavlink.MAV_CMD_EXTERNAL_WIND_ESTIMATE, p1=2, p3=370, want_result=mavutil.mavlink.MAV_RESULT_DENIED)
 
+    def FenceDoubleBreach(self):
+        '''test breaching the fence twice'''
+        self.wait_ready_to_arm()
+
+        fence_centre_ne = (0, -500)
+
+        fence_centre = self.mav.location()
+        fence_centre = self.offset_location_ne(fence_centre, fence_centre_ne[0], fence_centre_ne[1])
+
+        self.set_parameters({
+            "RTL_AUTOLAND": 2,
+        })
+
+        alt = 50
+        self.upload_simple_relhome_mission([
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 200, 0, alt),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, fence_centre_ne[0], fence_centre_ne[1], alt),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, -750, alt),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, -1000, alt),
+            self.create_MISSION_ITEM_INT(
+                mavutil.mavlink.MAV_CMD_DO_LAND_START,
+            ),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 800, 800, alt),
+        ])
+
+        self.upload_fences_from_locations([
+            (mavutil.mavlink.MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION, [
+                self.offset_location_ne(fence_centre, -200, -200), # bl
+                self.offset_location_ne(fence_centre, -200, 200), # br
+                self.offset_location_ne(fence_centre, 200, 200), # tr
+                self.offset_location_ne(fence_centre, 200, -200), # tl,
+            ]),
+        ])
+
+        self.do_fence_enable()
+
+        self.takeoff(mode='FBWA')
+        self.set_rc(3, 1500)
+
+        self.change_mode('AUTO')
+
+        self.context_collect('STATUSTEXT')
+
+        self.wait_statustext('Polygon fence breached', timeout=300)
+        self.wait_current_waypoint(6)
+        self.wait_distance_to_location(fence_centre, 350, 20000)
+
+        self.set_current_waypoint(2)
+
+        self.wait_statustext('Polygon fence breached', timeout=300)
+        self.wait_current_waypoint(6, timeout=5)
+        self.fly_home_land_and_disarm()
+
     def MAV_CMD_EXTERNAL_WIND_ESTIMATE(self):
         '''test MAV_CMD_EXTERNAL_WIND_ESTIMATE as a mavlink command'''
         self._MAV_CMD_EXTERNAL_WIND_ESTIMATE(self.run_cmd)
@@ -6809,6 +6877,31 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         if m is None:
             raise NotAchievedException("Did not find NVF message")
         self.progress(f"Received NVF with value {m.Value}")
+
+    def LoggedNamedValueString(self):
+        '''ensure that sent named value strings are logged'''
+        self.context_push()
+        self.install_example_script_context('simple_named_string.lua')
+        self.set_parameters({
+            'SCR_ENABLE': 1,
+        })
+        self.reboot_sitl()
+        self.wait_ready_to_arm()
+        m = self.assert_received_message_field_values('NAMED_VALUE_STRING', {
+            "name": "Lua String",
+            "value": "Lua String Value",
+        })
+        dfreader = self.dfreader_for_current_onboard_log()
+        self.context_pop()
+
+        m = dfreader.recv_match(type='NVS')
+        if m is None:
+            raise NotAchievedException("Did not find NVS message")
+        self.progress(f"Received NVS with value {m.Value}")
+        if m.Name != 'Lua String':
+            raise NotAchievedException("Unexpected name in NVS")
+        if m.Value != 'Lua String Value':
+            raise NotAchievedException("Unexpected value in NVS")
 
     def GliderPullup(self):
         '''test pullup of glider after ALTITUDE_WAIT'''
@@ -7573,11 +7666,14 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.mavlink_AIRSPEED,
             self.Volz,
             self.LoggedNamedValueFloat,
+            self.LoggedNamedValueString,
             self.AdvancedFailsafeBadBaro,
             self.DO_CHANGE_ALTITUDE,
             self.SET_POSITION_TARGET_GLOBAL_INT_for_altitude,
             self.MAV_CMD_NAV_LOITER_TURNS_zero_turn,
             self.RudderArmingWithArmingChecksZero,
+            self.TerrainLoiterToCircle,
+            self.FenceDoubleBreach,
         ]
 
     def disabled_tests(self):

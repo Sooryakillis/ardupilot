@@ -276,6 +276,8 @@ class ExtractFeatures(object):
             ('AP_NETWORKING_ENABLED', 'AP_Networking::init'),
             ('AP_NETWORKING_BACKEND_PPP', 'AP_Networking_PPP::init'),
             ('AP_NETWORKING_CAN_MCAST_ENABLED', 'AP_Networking_CAN::start'),
+            ('AP_NETWORKING_CAPTURE_ENABLED', 'AP_Networking_Backend::capture_pbuf'),
+
             ('FORCE_APJ_DEFAULT_PARAMETERS', 'AP_Param::param_defaults_data'),
             ('HAL_BUTTON_ENABLED', 'AP_Button::update'),
             ('HAL_LOGGING_ENABLED', 'AP_Logger::init'),
@@ -319,6 +321,9 @@ class ExtractFeatures(object):
             ('AP_PERIPH_IMU_ENABLED', r'AP_Periph_FW::can_imu_update'),
             ('AP_PERIPH_RC_OUT_ENABLED', r'AP_Periph_FW::sim_update_actuator'),
             ('AP_PERIPH_EFI_ENABLED', r'AP_Periph_FW::can_efi_update'),
+            ('AP_PERIPH_RCIN_ENABLED', r'AP_Periph_FW::rcin_update'),
+            ('AP_PERIPH_RPM_ENABLED', r'AP_Periph_FW::rpm_sensor_send'),
+            ('AP_PERIPH_AIRSPEED_ENABLED', r'AP_Periph_FW::can_airspeed_update'),
         ]
 
     def progress(self, msg):
